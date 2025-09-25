@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tanzlite Agent</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <span>Tanzlite Agent</span>
+                </div>
+                <button class="close-sidebar-btn" id="closeSidebarBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <button class="new-chat-btn" id="newChatBtn">
+                <i class="fas fa-plus"></i>
+                New Chat
+            </button>
+
+            <div class="conversation-list" id="conversationList">
+                <!-- Conversation items will be dynamically added here -->
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="header-actions">
+                    <button class="theme-toggle" id="themeToggle">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <!-- Welcome Screen -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div>
+                        <h1 class="welcome-title">Welcome to Tanzlite Agent</h1>
+                        <p class="welcome-subtitle">
+                            Tanzlite Agent is here to make it easier for you to understand about Tanzlite Digital 
+                            and discover how we can help you achieve your business objectives in today's market.
+                        </p>
+                    </div>
+                    <div class="capability-list">
+                        <div class="capability-item">
+                            <div class="capability-icon">
+                                <i class="fas fa-globe"></i>
+                            </div>
+                            <h3>Website Services</h3>
+                            <p>Professional website development and hosting solutions</p>
+                        </div>
+                        <div class="capability-item">
+                            <div class="capability-icon">
+                                <i class="fas fa-hashtag"></i>
+                            </div>
+                            <h3>Social Media Marketing</h3>
+                            <p>Boost your online presence with targeted social media strategies</p>
+                        </div>
+                        <div class="capability-item">
+                            <div class="capability-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <h3>Our Uniqueness</h3>
+                            <p>Discover what makes Tanzlite Digital stand out in the market</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messages will be dynamically added here -->
+            </div>
+
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <textarea class="chat-input" id="chatInput" placeholder="Ask about Tanzlite services..." rows="1"></textarea>
+                    <button class="voice-btn" id="voiceBtn" title="Voice Input">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button class="send-btn" id="sendBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="agent.js"></script>
+</body>
+</html>
