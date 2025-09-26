@@ -517,14 +517,6 @@ body {
     }
 }
 
-@media (max-width: 768px) {
-    .welcome-screen {
-        justify-content: flex-start; /* Align to top */
-        padding-top: 20px; /* Reduce top padding */
-        height: auto; /* Don't take full height */
-        min-height: 70vh; /* But ensure minimum height */
-    }
-}
 
 @media (max-width: 768px) {
     .sidebar {
