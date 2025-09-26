@@ -17,13 +17,25 @@ const ROUTE = 'general';
 
 // State Management
 let currentConversationId = null;
-let conversations = JSON.parse(localStorage.getItem('conversations')) || [];
+let conversations = [];
 let isListening = false;
 let recognition = null;
 let isWaitingForResponse = false;
 
 // Initialize the app
 function init() {
+    // Load conversations and filter out problematic ones
+    const savedConversations = localStorage.getItem('conversations');
+    conversations = savedConversations ? JSON.parse(savedConversations) : [];
+    
+    // Remove any hardcoded or problematic conversations
+    conversations = conversations.filter(conv => {
+        return conv.id && 
+               conv.id !== 'default-conversation' && 
+               conv.title !== 'who are you?' &&
+               conv.title !== 'Who are you?';
+    });
+    
     loadConversations();
     setupEventListeners();
     setupVoiceRecognition();
@@ -129,17 +141,19 @@ function startNewChat() {
     loadConversations();
     showChatInterface();
     
-    // Hide welcome screen
-    welcomeScreen.style.display = 'none';
-    
     // Close sidebar on mobile
     if (window.innerWidth <= 1024) {
         closeSidebar();
     }
+    
+    // Focus on input field immediately for typing
+    setTimeout(() => {
+        chatInput.focus();
+    }, 100);
 }
 
 function deleteConversation(conversationId, event) {
-    event.stopPropagation(); // Prevent triggering conversation load
+    event.stopPropagation();
     
     if (confirm('Are you sure you want to delete this conversation?')) {
         conversations = conversations.filter(conv => conv.id !== conversationId);
@@ -161,7 +175,7 @@ function loadConversations() {
     if (conversations.length === 0) {
         conversationList.innerHTML = `
             <div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.7);">
-                <p>No conversations yet. Start a new chat!</p>
+                <p>No conversations yet</p>
             </div>
         `;
         return;
@@ -171,12 +185,10 @@ function loadConversations() {
         const conversationItem = document.createElement('div');
         conversationItem.className = `conversation-item ${conversation.id === currentConversationId ? 'active' : ''}`;
         conversationItem.innerHTML = `
-            <div class="conversation-icon">
-                <i class="fas fa-comment"></i>
-            </div>
+            <i class="fas fa-comment"></i>
             <div class="conversation-content">
                 <div class="conversation-title">${conversation.title}</div>
-                <div class="conversation-preview">${conversation.preview}</div>
+                <div class="conversation-preview">${conversation.preview || 'Start a new conversation...'}</div>
             </div>
             <button class="delete-conversation-btn" onclick="deleteConversation('${conversation.id}', event)">
                 <i class="fas fa-trash"></i>
@@ -197,18 +209,14 @@ function loadConversation(conversationId) {
     
     if (!conversation) return;
     
-    // Update UI
     loadConversations();
     showChatInterface();
-    welcomeScreen.style.display = 'none';
     
-    // Clear and load messages
     chatMessages.innerHTML = '';
     conversation.messages.forEach(message => {
         addMessageToChat(message.text, message.type);
     });
     
-    // Close sidebar on mobile
     if (window.innerWidth <= 1024) {
         closeSidebar();
     }
@@ -218,7 +226,7 @@ function showChatInterface() {
     welcomeScreen.style.display = 'none';
 }
 
-// Message Handling with Webhook Integration
+// Message Handling
 async function sendMessage() {
     const messageText = chatInput.value.trim();
     if (!messageText || isWaitingForResponse) return;
@@ -226,19 +234,14 @@ async function sendMessage() {
     isWaitingForResponse = true;
     sendBtn.disabled = true;
 
-    // Add user message
     addMessageToChat(messageText, 'user');
     chatInput.value = '';
     autoResizeTextarea();
 
-    // Update conversation
     updateConversation(messageText, 'user');
-
-    // Show typing indicator
     showTypingIndicator();
 
     try {
-        // Send message to webhook
         const aiResponse = await sendToWebhook(messageText);
         removeTypingIndicator();
         addMessageToChat(aiResponse, 'ai');
@@ -247,7 +250,6 @@ async function sendMessage() {
         console.error('Error sending message to webhook:', error);
         removeTypingIndicator();
         
-        // Show error message
         const errorMessage = "Sorry, I'm having trouble connecting right now. Please try again in a moment.";
         addMessageToChat(errorMessage, 'ai');
         updateConversation(errorMessage, 'ai');
@@ -259,9 +261,16 @@ async function sendMessage() {
 
 // Webhook Communication
 async function sendToWebhook(messageText) {
-    // Generate session ID if this is a new conversation
     if (!currentConversationId) {
         currentConversationId = 'conversation-' + Date.now();
+        const newConversation = {
+            id: currentConversationId,
+            title: 'New Conversation',
+            preview: 'Start a new conversation...',
+            timestamp: new Date().toISOString(),
+            messages: []
+        };
+        conversations.unshift(newConversation);
     }
 
     const requestData = {
@@ -285,21 +294,15 @@ async function sendToWebhook(messageText) {
 
     const responseData = await response.json();
     
-    // Extract the response text based on your n8n webhook structure
-    // Adjust this based on your actual webhook response format
     let responseText;
     
     if (Array.isArray(responseData)) {
-        // If response is an array, take the first item's output
         responseText = responseData[0]?.output || "I received your message but couldn't generate a proper response.";
     } else if (responseData.output) {
-        // If response has an output property
         responseText = responseData.output;
     } else if (typeof responseData === 'string') {
-        // If response is a simple string
         responseText = responseData;
     } else {
-        // Fallback response
         responseText = "Thank you for your message. I'm processing your request.";
     }
 
@@ -309,21 +312,28 @@ async function sendToWebhook(messageText) {
 function addMessageToChat(text, type) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
+    
+    // Use a logo image for AI messages, keep user icon for user messages
+    const avatarContent = type === 'user' 
+        ? '<i class="fas fa-user"></i>'
+        : '<img src="https://test.tanzlite.host/wp-content/uploads/2025/09/Minza-at-Tanzlite.jpg" alt="Tanzlite AI" class="message-logo">';
+    
     messageDiv.innerHTML = `
-        <div class="message-avatar">
-            ${type === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>'}
+        <div class="message-container">
+            <div class="message-wrapper">
+                <div class="message-avatar">
+                    ${avatarContent}
+                </div>
+                <div class="message-content">${formatMessage(text)}</div>
+            </div>
         </div>
-        <div class="message-content">${formatMessage(text)}</div>
     `;
     
-    // Remove welcome screen if it's the first message
     if (welcomeScreen.style.display !== 'none') {
         welcomeScreen.style.display = 'none';
     }
     
-    // Remove typing indicator if present
     removeTypingIndicator();
-    
     chatMessages.appendChild(messageDiv);
     scrollToBottom();
 }
@@ -333,13 +343,17 @@ function showTypingIndicator() {
     typingDiv.className = 'message ai';
     typingDiv.id = 'typingIndicator';
     typingDiv.innerHTML = `
-        <div class="message-avatar">
-            <i class="fas fa-robot"></i>
-        </div>
-        <div class="typing-indicator">
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
+        <div class="message-container">
+            <div class="message-wrapper">
+                <div class="message-avatar">
+                    <img src="https://test.tanzlite.host/wp-content/uploads/2025/09/Minza-at-Tanzlite.jpg" alt="Tanzlite AI" class="message-logo">
+                </div>
+                <div class="typing-indicator">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
         </div>
     `;
     chatMessages.appendChild(typingDiv);
@@ -354,29 +368,46 @@ function removeTypingIndicator() {
 }
 
 function updateConversation(text, type) {
-    const conversation = conversations.find(c => c.id === currentConversationId);
+    let conversation = conversations.find(c => c.id === currentConversationId);
     if (!conversation) {
-        // Create new conversation if it doesn't exist
-        const newConversation = {
+        conversation = {
             id: currentConversationId,
             title: 'New Conversation',
             preview: 'Start a new conversation...',
             timestamp: new Date().toISOString(),
             messages: []
         };
-        conversations.unshift(newConversation);
+        conversations.unshift(conversation);
     }
 
-    const currentConv = conversations.find(c => c.id === currentConversationId);
-    currentConv.messages.push({ text, type, timestamp: new Date().toISOString() });
+    conversation.messages.push({ text, type, timestamp: new Date().toISOString() });
     
-    // Update conversation preview
+    // Update preview with latest message
     if (type === 'user') {
-        currentConv.preview = text.length > 30 ? text.substring(0, 30) + '...' : text;
+        conversation.preview = text.length > 30 ? text.substring(0, 30) + '...' : text;
         
-        // Auto-generate title from first message if not set
-        if (currentConv.title === 'New Conversation') {
-            currentConv.title = text.length > 20 ? text.substring(0, 20) + '...' : text;
+        // Auto-generate title from first user message only
+        if (conversation.title === 'New Conversation') {
+            // Use more words for the title (up to 4-5 words)
+            const words = text.trim().split(' ');
+            let titleWords = words.slice(0, 5); // Take up to 5 words
+            
+            // Capitalize first letter of first word only
+            if (titleWords.length > 0) {
+                titleWords[0] = titleWords[0].charAt(0).toUpperCase() + titleWords[0].slice(1).toLowerCase();
+            }
+            
+            // Make remaining words lowercase
+            for (let i = 1; i < titleWords.length; i++) {
+                titleWords[i] = titleWords[i].toLowerCase();
+            }
+            
+            conversation.title = titleWords.join(' ');
+            
+            // Limit title length for display
+            if (conversation.title.length > 35) {
+                conversation.title = conversation.title.substring(0, 32) + '...';
+            }
         }
     }
     
@@ -417,8 +448,170 @@ function checkScreenSize() {
 }
 
 function formatMessage(text) {
-    // Simple formatting for demonstration
-    return text.replace(/\n/g, '<br>');
+    if (!text) return '';
+    
+    let formattedText = text;
+    
+    // 1. Clean up markdown formatting
+    formattedText = cleanMarkdownFormatting(formattedText);
+    
+    // 2. Convert URLs with http/https
+    const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+    formattedText = formattedText.replace(urlRegex, function(url) {
+        let displayUrl = url.length > 50 ? url.substring(0, 47) + '...' : url;
+        return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="message-link">' + displayUrl + '</a>';
+    });
+    
+    // 3. Convert www URLs without protocol
+    const wwwRegex = /(^|\s)(www\.[^\s]+)/ig;
+    formattedText = formattedText.replace(wwwRegex, function(match, space, url) {
+        let fullUrl = 'https://' + url;
+        let displayUrl = url.length > 50 ? url.substring(0, 47) + '...' : url;
+        return space + '<a href="' + fullUrl + '" target="_blank" rel="noopener noreferrer" class="message-link">' + displayUrl + '</a>';
+    });
+    
+    // 4. Convert newlines to <br> tags
+    formattedText = formattedText.replace(/\n/g, '<br>');
+    
+    return formattedText;
+}
+
+// New function to clean markdown formatting and convert lists
+function cleanMarkdownFormatting(text) {
+    let cleanedText = text;
+    
+    // Remove asterisks from bold text (**text** → text)
+    cleanedText = cleanedText.replace(/\*\*(.*?)\*\*/g, '$1');
+    
+    // Remove single asterisks from italic text (*text* → text)
+    cleanedText = cleanedText.replace(/\*(.*?)\*/g, '$1');
+    
+    // Convert markdown lists to HTML ordered lists
+    // Handle numbered lists (1., 2., 3., etc.)
+    cleanedText = convertNumberedLists(cleanedText);
+    
+    // Handle asterisk lists (* item) to HTML lists
+    cleanedText = convertAsteriskLists(cleanedText);
+    
+    // Handle dash lists (- item) to HTML lists
+    cleanedText = convertDashLists(cleanedText);
+    
+    return cleanedText;
+}
+
+function convertNumberedLists(text) {
+    // Match lines that start with numbers like "1.", "2.", etc.
+    const lines = text.split('\n');
+    let inList = false;
+    let listItems = [];
+    let result = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Check if this line starts with a number followed by a dot and space
+        if (/^\d+\.\s+.+/.test(line)) {
+            if (!inList) {
+                inList = true;
+                // If we have previous content, add it first
+                if (result.length > 0 && result[result.length - 1] !== '') {
+                    result.push('');
+                }
+            }
+            // Extract the content after the number
+            const content = line.replace(/^\d+\.\s+/, '');
+            listItems.push('<li>' + content + '</li>');
+        } else {
+            // If we were in a list and this line doesn't match, close the list
+            if (inList && listItems.length > 0) {
+                result.push('<ol class="message-list">' + listItems.join('') + '</ol>');
+                listItems = [];
+                inList = false;
+            }
+            result.push(line);
+        }
+    }
+    
+    // Close any remaining list
+    if (inList && listItems.length > 0) {
+        result.push('<ol class="message-list">' + listItems.join('') + '</ol>');
+    }
+    
+    return result.join('\n');
+}
+
+function convertAsteriskLists(text) {
+    const lines = text.split('\n');
+    let inList = false;
+    let listItems = [];
+    let result = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Check if this line starts with asterisk and space
+        if (/^\*\s+.+/.test(line)) {
+            if (!inList) {
+                inList = true;
+                if (result.length > 0 && result[result.length - 1] !== '') {
+                    result.push('');
+                }
+            }
+            // Extract the content after the asterisk
+            const content = line.replace(/^\*\s+/, '');
+            listItems.push('<li>' + content + '</li>');
+        } else {
+            if (inList && listItems.length > 0) {
+                result.push('<ol class="message-list">' + listItems.join('') + '</ol>');
+                listItems = [];
+                inList = false;
+            }
+            result.push(line);
+        }
+    }
+    
+    if (inList && listItems.length > 0) {
+        result.push('<ol class="message-list">' + listItems.join('') + '</ol>');
+    }
+    
+    return result.join('\n');
+}
+
+function convertDashLists(text) {
+    const lines = text.split('\n');
+    let inList = false;
+    let listItems = [];
+    let result = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Check if this line starts with dash and space
+        if (/^-\s+.+/.test(line)) {
+            if (!inList) {
+                inList = true;
+                if (result.length > 0 && result[result.length - 1] !== '') {
+                    result.push('');
+                }
+            }
+            // Extract the content after the dash
+            const content = line.replace(/^-\s+/, '');
+            listItems.push('<li>' + content + '</li>');
+        } else {
+            if (inList && listItems.length > 0) {
+                result.push('<ol class="message-list">' + listItems.join('') + '</ol>');
+                listItems = [];
+                inList = false;
+            }
+            result.push(line);
+        }
+    }
+    
+    if (inList && listItems.length > 0) {
+        result.push('<ol class="message-list">' + listItems.join('') + '</ol>');
+    }
+    
+    return result.join('\n');
 }
 
 function saveConversations() {
