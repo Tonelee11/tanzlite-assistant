@@ -325,6 +325,8 @@ body {
 /* Chat Input */
 .chat-input-container {
     padding: 20px;
+    bottom: 0;
+    position: sticky;
     border-top: 1px solid var(#0BE56D);
 }
 
