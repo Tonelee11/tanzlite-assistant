@@ -24,16 +24,13 @@ let isWaitingForResponse = false;
 
 // Initialize the app
 function init() {
-    // Load conversations and filter out problematic ones
+    // Load conversations without aggressive filtering
     const savedConversations = localStorage.getItem('conversations');
     conversations = savedConversations ? JSON.parse(savedConversations) : [];
     
-    // Remove any hardcoded or problematic conversations
+    // Only filter out truly invalid conversations
     conversations = conversations.filter(conv => {
-        return conv.id && 
-               conv.id !== 'default-conversation' && 
-               conv.title !== 'who are you?' &&
-               conv.title !== 'Who are you?';
+        return conv && conv.id; // Only keep conversations with valid structure and ID
     });
     
     loadConversations();
@@ -233,6 +230,21 @@ async function sendMessage() {
 
     isWaitingForResponse = true;
     sendBtn.disabled = true;
+
+    // **CRITICAL FIX: Ensure we use existing conversation or create ONLY ONE**
+    if (!currentConversationId) {
+        currentConversationId = 'conversation-' + Date.now();
+        const newConversation = {
+            id: currentConversationId,
+            title: 'New Conversation',
+            preview: 'Start a new conversation...',
+            timestamp: new Date().toISOString(),
+            messages: []
+        };
+        conversations.unshift(newConversation);
+        saveConversations(); // Save immediately after creation
+        loadConversations(); // Update sidebar immediately
+    }
 
     addMessageToChat(messageText, 'user');
     chatInput.value = '';
